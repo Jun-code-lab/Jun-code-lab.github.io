@@ -52,6 +52,10 @@
       <button id="btnPick" class="btn">⊕ 임의 위치 지정</button>
     </div>
     <div class="row">
+      <button id="btnPickA" class="btn">A 선택</button>
+      <button id="btnPickB" class="btn">B 선택</button>
+    </div>
+    <div class="row">
       <button id="btnRouteAB" class="btn">A↔B 경로</button>
       <button id="btnResetAB" class="btn">선택 해제</button>
     </div>
@@ -70,7 +74,8 @@
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
   <script>
-    const MAP_CENTER = new kakao.maps.LatLng(37.5665, 126.9780);
+    // --- 카카오맵 초기 설정 ---
+    const MAP_CENTER = new kakao.maps.LatLng(37.5665, 126.9780); // 서울 시청
     const mapContainer = document.getElementById('map');
     const mapOption = { center: MAP_CENTER, level: 8 };
     const map = new kakao.maps.Map(mapContainer, mapOption);
@@ -81,9 +86,6 @@
     let meMarker = null, meCircle = null, routePolyline = null, highlightPolygon = null;
     let guPolys = [];
     let nearestMarkerInfo = null;
-    
-    let selectionOverlay = new kakao.maps.CustomOverlay({ yAnchor: 1.2, zIndex: 100 });
-    let currentlyClickedMarker = null;
 
     let defaultMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png', new kakao.maps.Size(24, 35), { offset: new kakao.maps.Point(12, 35) });
     let redMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/red_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
@@ -132,28 +134,17 @@
         const name = labelKey ? (row[labelKey] ?? '') : '';
         const position = new kakao.maps.LatLng(lat, lon);
         const marker = new kakao.maps.Marker({ position: position, image: defaultMarkerImage });
+        const infowindow = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;">${name}<br><small>${lat.toFixed(6)}, ${lon.toFixed(6)}</small></div>` });
 
-        kakao.maps.event.addListener(marker, 'click', function() {
-            selectionOverlay.setMap(null);
-            currentlyClickedMarker = marker;
-
-            // ▼▼▼ 수정된 부분: onclick 대신 class와 data-action 속성 사용 ▼▼▼
-            const content = `
-                <div style="padding:8px; background:white; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display:flex; gap:6px; font-size:12px;">
-                    <button class="marker-btn" data-action="setAsA" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">출발</button>
-                    <button class="marker-btn" data-action="setAsB" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">도착</button>
-                </div>`;
-            
-            selectionOverlay.setContent(content);
-            selectionOverlay.setPosition(marker.getPosition());
-            selectionOverlay.setMap(map);
-        });
+        kakao.maps.event.addListener(marker, 'mouseover', () => infowindow.open(map, marker));
+        kakao.maps.event.addListener(marker, 'mouseout', () => infowindow.close());
 
         binMarkers.push({ kakaoMarker: marker, meta: { name: String(name || '휴지통'), lat, lon } });
         newMarkers.push(marker);
       });
 
       clusterer.addMarkers(newMarkers);
+      attachPickHandlers();
 
       if (binMarkers.length){
         const bounds = new kakao.maps.LatLngBounds();
@@ -320,22 +311,19 @@
       return manualMarker;
     }
 
+    let pickA = false, pickB = false;
     let markerA = null, markerB = null;
 
     function resetAB(){
-      if (markerA) {
-          markerA.setImage(defaultMarkerImage);
-      }
-      if (markerB) {
-          markerB.setImage(defaultMarkerImage);
-      }
+      pickA = pickB = false;
+      if (markerA) markerA.setImage(defaultMarkerImage);
+      if (markerB) markerB.setImage(defaultMarkerImage);
       markerA = markerB = null;
       setChips();
       if (routePolyline) routePolyline.setMap(null);
       
-      clusterer.clear();
-      const allKakaoMarkers = binMarkers.map(bm => bm.kakaoMarker);
-      clusterer.addMarkers(allKakaoMarkers);
+      // ▼▼▼ 수정된 부분 ▼▼▼
+      clusterer.setMap(map);
     }
     function setChips(){
       const chips = document.getElementById('chips');
@@ -343,7 +331,27 @@
       if (markerA) chips.innerHTML += `<span class="chip"><span class="labelA">A</span> ${markerA.getPosition().getLat().toFixed(5)}, ${markerA.getPosition().getLng().toFixed(5)}</span>`;
       if (markerB) chips.innerHTML += `<span class="chip"><span class="labelB">B</span> ${markerB.getPosition().getLat().toFixed(5)}, ${markerB.getPosition().getLng().toFixed(5)}</span>`;
     }
-    
+
+    function attachPickHandlers(){
+      binMarkers.forEach(bm => {
+        if (bm.kakaoMarker.__pickListener) kakao.maps.event.removeListener(bm.kakaoMarker, 'click', bm.kakaoMarker.__pickListener);
+        bm.kakaoMarker.__pickListener = function() {
+          if (pickA){
+            if (markerA) markerA.setImage(defaultMarkerImage);
+            bm.kakaoMarker.setImage(imageA);
+            markerA = bm.kakaoMarker;
+            pickA = false; setChips();
+          } else if (pickB){
+            if (markerB) markerB.setImage(defaultMarkerImage);
+            bm.kakaoMarker.setImage(imageB);
+            markerB = bm.kakaoMarker;
+            pickB = false; setChips();
+          }
+        };
+        kakao.maps.event.addListener(bm.kakaoMarker, 'click', bm.kakaoMarker.__pickListener);
+      });
+    }
+
     (async function init(){
       const q = new URLSearchParams(location.search);
       const csvName = q.get('csv') || '주소 수정.csv';
@@ -375,7 +383,10 @@
       if (nearestMarkerInfo && nearestMarkerInfo.marker) nearestMarkerInfo.marker.setImage(defaultMarkerImage);
       best.kakaoMarker.setImage(redMarkerImage);
       nearestMarkerInfo = { marker: best.kakaoMarker, meters: 0 };
+
       map.panTo(best.kakaoMarker.getPosition());
+      kakao.maps.event.trigger(best.kakaoMarker, 'mouseover');
+      setTimeout(() => kakao.maps.event.trigger(best.kakaoMarker, 'mouseover'), 500);
     });
 
     document.getElementById('btnLocate').addEventListener('click', async () => {
@@ -428,7 +439,6 @@
     });
 
     kakao.maps.event.addListener(map, 'click', async (mouseEvent) => {
-      selectionOverlay.setMap(null);
       if (!pickMode) return;
       const latlng = mouseEvent.latLng;
       ensureManualMarker(latlng);
@@ -461,12 +471,15 @@
       setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
     });
 
+    document.getElementById('btnPickA').addEventListener('click', () => { pickA = true; pickB = false; alert('A로 지정할 휴지통 마커를 클릭하세요.'); });
+    document.getElementById('btnPickB').addEventListener('click', () => { pickB = true; pickA = false; alert('B로 지정할 휴지통 마커를 클릭하세요.'); });
     document.getElementById('btnResetAB').addEventListener('click', resetAB);
 
     document.getElementById('btnRouteAB').addEventListener('click', async () => {
       if (!(markerA && markerB)){ alert('A와 B가 모두 선택되어야 합니다.'); return; }
 
-      clusterer.clear();
+      // ▼▼▼ 수정된 부분 ▼▼▼
+      clusterer.setMap(null); 
       markerA.setMap(map);
       markerB.setMap(map);
 
@@ -511,33 +524,6 @@
     toggleBtn.addEventListener('click', () => {
       panel.classList.toggle('hidden');
       toggleBtn.textContent = panel.classList.contains('hidden') ? 'UI 보이기' : 'UI 숨기기';
-    });
-
-    // ▼▼▼ 수정된 부분: 새로운 이벤트 처리 방식 ▼▼▼
-    document.addEventListener('click', function(e) {
-        if (e.target && e.target.classList.contains('marker-btn')) {
-            const action = e.target.dataset.action;
-
-            if (action === 'setAsA') {
-                if (!currentlyClickedMarker) return;
-                if (markerA) markerA.setImage(defaultMarkerImage);
-                currentlyClickedMarker.setImage(imageA);
-                markerA = currentlyClickedMarker;
-                setChips();
-                selectionOverlay.setMap(null);
-                const pos = currentlyClickedMarker.getPosition();
-                setInfo(`<small><span class="labelA" style="margin-right:4px;">출발</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
-            } else if (action === 'setAsB') {
-                if (!currentlyClickedMarker) return;
-                if (markerB) markerB.setImage(defaultMarkerImage);
-                currentlyClickedMarker.setImage(imageB);
-                markerB = currentlyClickedMarker;
-                setChips();
-                selectionOverlay.setMap(null);
-                const pos = currentlyClickedMarker.getPosition();
-                setInfo(`<small><span class="labelB" style="margin-right:4px;">도착</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
-            }
-        }
     });
 
     function readTextFile(file){
