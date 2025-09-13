@@ -296,30 +296,79 @@
     }
 
     // --- 페이지 로드 시 실행될 초기화 함수 ---
+    // --- 페이지 로드 시 실행될 초기화 함수 ---
     (async function init() {
-      // CSV, GeoJSON 데이터를 외부 URL 대신 내부 변수에서 직접 로드합니다.
-      const trashCanData = [{"연번":"1","자치구명":"종로구","도로명주소":"서울특별시 종로구 종로 1","세부위치":"세종로파출소 앞","경도":"126.9789395","위도":"37.5760528"}, {"연번":"2","자치구명":"종로구","도로명주소":"서울특별시 종로구 종로 1","세부위치":"세종문화회관 뒤","경도":"126.9768291","위도":"37.5729359"}, /* ... 수많은 데이터 생략 ... */ {"연번":"5840","자치구명":"강동구","도로명주소":"서울특별시 강동구 천호대로 1089","세부위치":"강동역 1번출구 버스정류장","경도":"127.132488","위도":"37.534241"}];
-      const seoulGeoData = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"SGG_NM":"종로구"},"geometry":{"type":"Polygon","coordinates":[[[126.9768,37.5729],[126.977,37.573], [127.0017,37.5966]]]}},{"type":"Feature","properties":{"SGG_NM":"강남구"},"geometry":{"type":"Polygon","coordinates":[[[127.027,37.517],[127.028,37.517],[127.047,37.510]]]}}]}; // 실제 GeoJSON은 매우 길어서 간략화했습니다. 실제 코드에는 전체 데이터가 들어갑니다.
+      // 사용자가 제공한 파일 이름으로 수정
+      const csvName = '주소 수정.csv';
+      const geoName = 'HangJeongDong_Seoul.geojson';
 
-      setMarkersFromData(trashCanData);
-      buildGuLayers(seoulGeoData);
+      try {
+        setInfo('<small>휴지통 데이터를 불러오는 중...</small>');
+        // 같은 폴더에 있는 CSV 파일을 불러옵니다.
+        const csvParsed = await loadCsvFromUrl(csvName);
+        setMarkersFromRows(csvParsed);
+      } catch (e) {
+        console.error('CSV 자동 로드 실패:', e);
+        // 로드 실패 시, 직접 파일을 선택할 수 있는 입력창을 보여줍니다.
+        document.getElementById('fileBox').style.display = 'block';
+        setInfo('<small><b>오류:</b> 자동 로드 실패. 아래에서 파일을 직접 선택해주세요.</small>');
+      }
+      
+      try {
+        // 같은 폴더에 있는 GeoJSON 파일을 불러옵니다.
+        const geojson = await loadGeoFromUrl(geoName);
+        buildGuLayers(geojson);
+      } catch (e) {
+        console.error('GeoJSON 자동 로드 실패:', e);
+        document.getElementById('fileBox').style.display = 'block';
+        setInfo('<small><b>오류:</b> 자동 로드 실패. 아래에서 파일을 직접 선택해주세요.</small>');
+      }
     })();
 
-    // --- 모든 버튼에 대한 이벤트 핸들러 (기존과 동일) ---
-    document.getElementById('selGu').addEventListener('change', (e) => {
-      const name = e.target.value;
-      clearVisual();
-      if (name) highlightGu(name);
-    });
-    document.getElementById('inpGuSearch').addEventListener('change', (e) => {
-      const name = e.target.value;
-      const sel = document.getElementById('selGu');
-      if (Array.from(sel.options).some(o => o.value === name)) {
-        sel.value = name;
-        sel.dispatchEvent(new Event('change'));
-      } else {
-        alert('서울 구 목록에서 찾을 수 없습니다.');
+    // URL로부터 CSV 데이터를 fetch하고 PapaParse로 파싱하는 함수
+    async function loadCsvFromUrl(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('CSV 데이터 로드 실패: ' + response.statusText);
       }
+      // EUC-KR 형식의 파일을 읽기 위해 arrayBuffer로 변환 후 TextDecoder를 사용합니다.
+      const buffer = await response.arrayBuffer();
+      const decoder = new TextDecoder('euc-kr');
+      const text = decoder.decode(buffer);
+      return Papa.parse(text, { header: true, skipEmptyLines: true });
+    }
+
+    // URL로부터 GeoJSON 데이터를 fetch하는 함수
+    async function loadGeoFromUrl(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('GeoJSON 데이터 로드 실패: ' + response.statusText);
+      }
+      return response.json();
+    }
+    
+    // --- (이하 나머지 코드는 동일) ---
+
+    // 로컬 파일 직접 로드 (FileReader)
+    function readTextFile(file, encoding = 'euc-kr') {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsText(file, encoding);
+      });
+    }
+    document.getElementById('fileCsv').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const text = await readTextFile(f);
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      setMarkersFromRows(parsed);
+    });
+    document.getElementById('fileGeo').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const text = await readTextFile(f, 'utf-8'); // GeoJSON은 보통 utf-8 입니다.
+      const geo = JSON.parse(text);
+      buildGuLayers(geo);
     });
 
     document.getElementById('btnBestInGu').addEventListener('click', async () => {
