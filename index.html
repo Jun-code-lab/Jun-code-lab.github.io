@@ -105,28 +105,6 @@
     }
     function isWgs84(lat, lon){ return lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132; }
 
-    window.setAsA = function() {
-        alert("출발 버튼 클릭됨!");
-        if (!currentlyClickedMarker) return;
-        if (markerA) markerA.setImage(defaultMarkerImage);
-        currentlyClickedMarker.setImage(imageA);
-        markerA = currentlyClickedMarker;
-        setChips();
-        selectionOverlay.setMap(null);
-        const pos = currentlyClickedMarker.getPosition();
-        setInfo(`<small><span class="labelA" style="margin-right:4px;">출발</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
-    }
-    window.setAsB = function() {
-        if (!currentlyClickedMarker) return;
-        if (markerB) markerB.setImage(defaultMarkerImage);
-        currentlyClickedMarker.setImage(imageB);
-        markerB = currentlyClickedMarker;
-        setChips();
-        selectionOverlay.setMap(null);
-        const pos = currentlyClickedMarker.getPosition();
-        setInfo(`<small><span class="labelB" style="margin-right:4px;">도착</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
-    }
-
     async function loadCsvFromUrl(url){
       const res = await fetch(encodeURI(url));
       if (!res.ok) throw new Error('CSV HTTP ' + res.status);
@@ -159,10 +137,11 @@
             selectionOverlay.setMap(null);
             currentlyClickedMarker = marker;
 
+            // ▼▼▼ 수정된 부분: onclick 대신 class와 data-action 속성 사용 ▼▼▼
             const content = `
                 <div style="padding:8px; background:white; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display:flex; gap:6px; font-size:12px;">
-                    <button onclick="setAsA()" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">출발</button>
-                    <button onclick="setAsB()" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">도착</button>
+                    <button class="marker-btn" data-action="setAsA" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">출발</button>
+                    <button class="marker-btn" data-action="setAsB" style="border:1px solid #ddd; background:#fff; padding:4px 8px; border-radius:6px; cursor:pointer;">도착</button>
                 </div>`;
             
             selectionOverlay.setContent(content);
@@ -350,7 +329,6 @@
       if (markerB) {
           markerB.setImage(defaultMarkerImage);
       }
-
       markerA = markerB = null;
       setChips();
       if (routePolyline) routePolyline.setMap(null);
@@ -533,6 +511,33 @@
     toggleBtn.addEventListener('click', () => {
       panel.classList.toggle('hidden');
       toggleBtn.textContent = panel.classList.contains('hidden') ? 'UI 보이기' : 'UI 숨기기';
+    });
+
+    // ▼▼▼ 수정된 부분: 새로운 이벤트 처리 방식 ▼▼▼
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('marker-btn')) {
+            const action = e.target.dataset.action;
+
+            if (action === 'setAsA') {
+                if (!currentlyClickedMarker) return;
+                if (markerA) markerA.setImage(defaultMarkerImage);
+                currentlyClickedMarker.setImage(imageA);
+                markerA = currentlyClickedMarker;
+                setChips();
+                selectionOverlay.setMap(null);
+                const pos = currentlyClickedMarker.getPosition();
+                setInfo(`<small><span class="labelA" style="margin-right:4px;">출발</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
+            } else if (action === 'setAsB') {
+                if (!currentlyClickedMarker) return;
+                if (markerB) markerB.setImage(defaultMarkerImage);
+                currentlyClickedMarker.setImage(imageB);
+                markerB = currentlyClickedMarker;
+                setChips();
+                selectionOverlay.setMap(null);
+                const pos = currentlyClickedMarker.getPosition();
+                setInfo(`<small><span class="labelB" style="margin-right:4px;">도착</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
+            }
+        }
     });
 
     function readTextFile(file){
