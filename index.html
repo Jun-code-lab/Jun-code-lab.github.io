@@ -83,9 +83,8 @@
     let guPolys = [];
     let nearestMarkerInfo = null;
     
-    // ▼▼▼ 수정된 부분: 출발/도착 선택을 위한 커스텀 오버레이 변수 추가 ▼▼▼
     let selectionOverlay = new kakao.maps.CustomOverlay({ yAnchor: 1.2, zIndex: 100 });
-    let currentlyClickedMarker = null; // 오버레이에서 사용할 현재 클릭된 마커
+    let currentlyClickedMarker = null;
 
     let defaultMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png', new kakao.maps.Size(24, 35), { offset: new kakao.maps.Point(12, 35) });
     let redMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/red_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
@@ -107,8 +106,8 @@
     }
     function isWgs84(lat, lon){ return lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132; }
 
-    // ▼▼▼ 수정된 부분: 오버레이 버튼 클릭 시 호출될 함수들 ▼▼▼
-    function setAsA() {
+    // ▼▼▼ 수정된 부분: 함수를 window 객체에 할당하여 전역 스코프에서 접근 가능하도록 변경 ▼▼▼
+    window.setAsA = function() {
         if (!currentlyClickedMarker) return;
         if (markerA) markerA.setImage(defaultMarkerImage);
         currentlyClickedMarker.setImage(imageA);
@@ -116,7 +115,7 @@
         setChips();
         selectionOverlay.setMap(null);
     }
-    function setAsB() {
+    window.setAsB = function() {
         if (!currentlyClickedMarker) return;
         if (markerB) markerB.setImage(defaultMarkerImage);
         currentlyClickedMarker.setImage(imageB);
@@ -153,10 +152,9 @@
         const position = new kakao.maps.LatLng(lat, lon);
         const marker = new kakao.maps.Marker({ position: position, image: defaultMarkerImage });
 
-        // ▼▼▼ 수정된 부분: mouseover 대신 click 이벤트로 변경하고, 커스텀 오버레이를 띄웁니다. ▼▼▼
         kakao.maps.event.addListener(marker, 'click', function() {
-            selectionOverlay.setMap(null); // 기존 오버레이 닫기
-            currentlyClickedMarker = marker; // 현재 클릭된 마커 저장
+            selectionOverlay.setMap(null);
+            currentlyClickedMarker = marker;
 
             const content = `
                 <div style="padding:8px; background:white; border-radius:8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display:flex; gap:6px; font-size:12px;">
@@ -174,7 +172,6 @@
       });
 
       clusterer.addMarkers(newMarkers);
-      // attachPickHandlers(); // 기존 방식 삭제
 
       if (binMarkers.length){
         const bounds = new kakao.maps.LatLngBounds();
@@ -344,7 +341,6 @@
     let markerA = null, markerB = null;
 
     function resetAB(){
-      // A, B 마커를 지도에서 제거하고, 아이콘을 원래대로 돌려놓습니다.
       if (markerA) {
           markerA.setMap(null);
           markerA.setImage(defaultMarkerImage);
@@ -353,12 +349,10 @@
           markerB.setMap(null);
           markerB.setImage(defaultMarkerImage);
       }
-
       markerA = markerB = null;
       setChips();
       if (routePolyline) routePolyline.setMap(null);
       
-      // 클러스터러에 모든 마커를 다시 추가합니다.
       clusterer.clear();
       const allKakaoMarkers = binMarkers.map(bm => bm.kakaoMarker);
       clusterer.addMarkers(allKakaoMarkers);
@@ -369,9 +363,7 @@
       if (markerA) chips.innerHTML += `<span class="chip"><span class="labelA">A</span> ${markerA.getPosition().getLat().toFixed(5)}, ${markerA.getPosition().getLng().toFixed(5)}</span>`;
       if (markerB) chips.innerHTML += `<span class="chip"><span class="labelB">B</span> ${markerB.getPosition().getLat().toFixed(5)}, ${markerB.getPosition().getLng().toFixed(5)}</span>`;
     }
-
-    // ▼▼▼ 'attachPickHandlers' 함수는 이제 사용되지 않으므로 삭제했습니다. ▼▼▼
-
+    
     (async function init(){
       const q = new URLSearchParams(location.search);
       const csvName = q.get('csv') || '주소 수정.csv';
@@ -403,9 +395,7 @@
       if (nearestMarkerInfo && nearestMarkerInfo.marker) nearestMarkerInfo.marker.setImage(defaultMarkerImage);
       best.kakaoMarker.setImage(redMarkerImage);
       nearestMarkerInfo = { marker: best.kakaoMarker, meters: 0 };
-
       map.panTo(best.kakaoMarker.getPosition());
-      // 클릭 이벤트 핸들러와 겹치지 않도록, 정보 표시는 다른 방식으로 고려
     });
 
     document.getElementById('btnLocate').addEventListener('click', async () => {
@@ -458,7 +448,7 @@
     });
 
     kakao.maps.event.addListener(map, 'click', async (mouseEvent) => {
-      selectionOverlay.setMap(null); // 다른 곳 클릭 시 오버레이 닫기
+      selectionOverlay.setMap(null);
       if (!pickMode) return;
       const latlng = mouseEvent.latLng;
       ensureManualMarker(latlng);
@@ -491,7 +481,6 @@
       setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
     });
 
-    // ▼▼▼ 'btnPickA', 'btnPickB' 이벤트 리스너는 이제 사용되지 않으므로 삭제했습니다. ▼▼▼
     document.getElementById('btnResetAB').addEventListener('click', resetAB);
 
     document.getElementById('btnRouteAB').addEventListener('click', async () => {
