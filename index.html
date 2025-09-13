@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>서울 휴지통 · (서울 한정) 검색/임의위치/A↔B 경로</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    .panel { position: absolute; top: 10px; left: 10px; z-index: 1000; background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); font-family: system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, sans-serif; width: 340px; }
+    .panel h1 { margin: 0 0 8px; font-size: 16px; }
+    .row { display: flex; gap: 6px; margin: 6px 0; }
+    .btn { cursor: pointer; padding: 8px 10px; border-radius: 10px; border: 1px solid #d1d5db; background: #ffffff; flex: 1; }
+    .btn:hover { background: #f9fafb; }
+    .select, .input { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; }
+    .small { font-size: 12px; color: #6b7280; line-height: 1.3; }
+    .filebox { margin-top: 6px; display: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 11px; }
+    .legend { font-size: 12px; color: #555; margin-top: 8px; }
+    .pill { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid #ddd; margin:2px 2px 0 0; font-size:12px; }
+    .seoul { background:#dcfce7; color:#065f46; border-color:#bbf7d0; }
+    .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; margin-right:6px;}
+    .labelA { background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:6px; font-weight:600; }
+    .labelB { background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:6px; font-weight:600; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="panel">
+    <h1>서울 휴지통 · (서울 한정) 검색/임의위치/A↔B 경로</h1>
+    <div class="small">
+      CSV/GeoJSON을 자동으로 읽습니다. 기본 파일명: <code>주소 수정.csv</code>, <code>HangJeongDong_ver20250401.geojson</code><br>
+      다른 파일은 <code>?csv=파일.csv&geo=파일.geojson</code>를 사용하세요.
+      <div style="margin-top:6px;"><span class="pill seoul">구 선택은 <b>서울특별시</b>만 표시</span></div>
+    </div>
+    <div class="row">
+      <input id="inpGuSearch" class="input" list="guList" placeholder="구 이름 검색 (예: 서초구, 강남구…)" />
+      <datalist id="guList"></datalist>
+    </div>
+    <div class="row">
+      <select id="selGu" class="select">
+        <option value="">– (서울) 구 선택 –</option>
+      </select>
+    </div>
+    <div class="row">
+      <button id="btnBestInGu" class="btn">선택 구의 “대표(최적)” 휴지통</button>
+      <button id="btnClear" class="btn">지우기</button>
+    </div>
+    <div class="row">
+      <button id="btnLocate" class="btn">◎ 내 위치</button>
+      <button id="btnPick" class="btn">⊕ 임의 위치 지정</button>
+    </div>
+    <div class="row">
+      <button id="btnPickA" class="btn">A 선택</button>
+      <button id="btnPickB" class="btn">B 선택</button>
+    </div>
+    <div class="row">
+      <button id="btnRouteAB" class="btn">A↔B 경로</button>
+      <button id="btnResetAB" class="btn">선택 해제</button>
+    </div>
+    <div id="chips" class="small"></div>
+    <div class="legend" id="info">팁: 위치 기능은 <b>HTTPS</b> 또는 <b>http://localhost</b>에서만 동작합니다. iPhone Safari 지원.</div>
+    <div class="filebox" id="fileBox">
+      <div class="small" style="margin-top:6px;">파일 직접 선택 (file:// 로 여는 경우)</div>
+      <input type="file" id="fileCsv" accept=".csv" />
+      <input type="file" id="fileGeo" accept=".geojson,.json" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+  <script>
+    const MAP_CENTER = [37.5665, 126.9780];
+    const map = L.map('map', { preferCanvas: true }).setView(MAP_CENTER, 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 20, attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const cluster = L.markerClusterGroup({ disableClusteringAtZoom: 17 });
+    map.addLayer(cluster);
+
+    const binMarkers = [];  // L.marker[]
+    let meMarker = null, meCircle = null, routeLayer = null, highlight = null, guLayerGroup = L.layerGroup().addTo(map);
+    let guPolys = []; // {name, feature(Polygon/MultiPolygon), layer}
+    let nearestMarker = null;
+
+    const defaultIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+    });
+    const redIcon = new L.Icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41]
+    });
+    const iconA = new L.DivIcon({ html: '<div style="transform: translate(-12px,-24px);"><span style="background:#ef4444;color:#fff;padding:2px 6px;border-radius:6px;font-weight:700;">A</span></div>', className:'', iconSize: [0,0] });
+    const iconB = new L.DivIcon({ html: '<div style="transform: translate(-12px,-24px);"><span style="background:#3b82f6;color:#fff;padding:2px 6px;border-radius:6px;font-weight:700;">B</span></div>', className:'', iconSize: [0,0] });
+
+    function setInfo(html){ document.getElementById('info').innerHTML = html; }
+    function clearVisual(){
+      if (routeLayer) { map.removeLayer(routeLayer); routeLayer = null; }
+      if (highlight) { map.removeLayer(highlight); highlight = null; }
+      if (nearestMarker) { nearestMarker.setIcon(defaultIcon); nearestMarker = null; }
+    }
+    function toNumber(v){
+      if (v === null || v === undefined) return NaN;
+      if (typeof v === 'number') return v;
+      const s = String(v).trim().replace(/[,\s]/g, '');
+      const n = parseFloat(s);
+      return Number.isFinite(n) ? n : NaN;
+    }
+    function isWgs84(lat, lon){ return lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132; }
+
+    // --- CSV 로드 ---
+    async function loadCsvFromUrl(url){
+      const res = await fetch(encodeURI(url));
+      if (!res.ok) throw new Error('CSV HTTP ' + res.status);
+      const text = await res.text();
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      return parsed;
+    }
+    function setMarkersFromRows(rows){
+      cluster.clearLayers();
+      binMarkers.length = 0;
+      const headers = rows.meta?.fields || Object.keys(rows.data?.[0] || {});
+      const hLow = headers.map(h => h.toLowerCase());
+      const latKey = headers[hLow.indexOf('lat')];
+      const lonKey = headers[hLow.indexOf('lon')];
+      let labelKey = null;
+      const labelCandidates = ['name','이름','명칭','설치위치','주소','address','place','location','위치','지점명','title'];
+      for (const c of labelCandidates) { const i = hLow.indexOf(c); if (i !== -1) { labelKey = headers[i]; break; } }
+      if (!latKey || !lonKey){ setInfo('<small>CSV에 lat/lon 컬럼이 없습니다.</small>'); return; }
+
+      const recs = [];
+      rows.data.forEach(row => {
+        const lat = toNumber(row[latKey]); const lon = toNumber(row[lonKey]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        if (!isWgs84(lat, lon)) return;
+        const name = labelKey ? (row[labelKey] ?? '') : '';
+        recs.push({ name: String(name || '휴지통'), lat, lon });
+      });
+
+      recs.forEach(b => {
+        const m = L.marker([b.lat, b.lon], { icon: defaultIcon }).bindPopup(`${b.name}<br><small>${b.lat.toFixed(6)}, ${b.lon.toFixed(6)}</small>`);
+        m.__meta = b;
+        cluster.addLayer(m);
+        binMarkers.push(m);
+      });
+
+      if (binMarkers.length){
+        const group = L.featureGroup(binMarkers);
+        map.fitBounds(group.getBounds().pad(0.15));
+        setInfo(`<small>불러온 휴지통: <b>${binMarkers.length}</b>개</small>`);
+        document.getElementById('chips').innerHTML = '<span class="pill">CSV 로드 완료</span>';
+      } else {
+        setInfo('<small>마커가 없습니다. CSV의 lat/lon 값을 확인하세요.</small>');
+      }
+    }
+
+    // --- GeoJSON 로드 & 구 목록 구성 (서울만) ---
+    async function loadGeoFromUrl(url){
+      const res = await fetch(encodeURI(url));
+      if (!res.ok) throw new Error('GEO HTTP ' + res.status);
+      return res.json();
+    }
+    function isSeoulProps(props){
+      if (!props) return false;
+      const candid = [
+        props.CTP_KOR_NM, props.SIDO, props.sido, props.sido_nm, props.SIDO_NM, props.광역시도명, props.시도명
+      ].filter(Boolean).map(String);
+      if (candid.some(v => v.includes('서울특별시') || v === '서울특별시')) return true;
+      for (const k of ['SIG_CD','SIGCD','ADM_CD','adm_cd','sig_cd','sgg_cd']) {
+        if (props[k] && String(props[k]).startsWith('11')) return true;
+      }
+      for (const k in props){ try { if (String(props[k]).includes('서울특별시')) return true; } catch(_){} }
+      return false;
+    }
+    function findGuName(props){
+      const keys = ['SIG_KOR_NM','SIG_ENG_NM','SIG_KOR','SIG_NM','gu','GU_NAME','name','AdmNm','adm_nm'];
+      for (const k of keys){ if (props && props[k]) return String(props[k]); }
+      for (const k in props){ const v = String(props[k]); if (v.endsWith('구')) return v; }
+      return null;
+    }
+    function buildGuLayers(geojson){
+      guLayerGroup.clearLayers();
+      guPolys = [];
+      const features = geojson.type === 'FeatureCollection' ? geojson.features : [geojson];
+      const seoulFeats = features.filter(f => isSeoulProps(f.properties));
+      seoulFeats.forEach(f => {
+        const name = findGuName(f.properties || {}) || '(이름없음)';
+        const layer = L.geoJSON(f, { style: { color: '#374151', weight: 1, fillOpacity: 0.05 } }).addTo(guLayerGroup);
+        guPolys.push({ name, feature: f, layer });
+      });
+      // 구 목록 세팅 (서울만)
+      const sel = document.getElementById('selGu');
+      const datalist = document.getElementById('guList');
+      sel.innerHTML = '<option value="">– (서울) 구 선택 –</option>';
+      datalist.innerHTML = '';
+      const names = [...new Set(guPolys.map(g => g.name))].sort();
+      names.forEach(n => {
+        const opt = document.createElement('option'); opt.value = n; datalist.appendChild(opt);
+        const o2 = document.createElement('option'); o2.value = n; o2.textContent = n; sel.appendChild(o2);
+      });
+      document.getElementById('chips').innerHTML += ' <span class="pill seoul">GeoJSON (서울만) 로드 완료</span>';
+    }
+
+    // --- 구 선택 & 검색 ---
+    function highlightGu(name){
+      if (highlight) { map.removeLayer(highlight); highlight = null; }
+      const found = guPolys.filter(g => g.name === name).map(g => g.feature);
+      if (!found.length){ return; }
+      const fc = { type:'FeatureCollection', features: found };
+      highlight = L.geoJSON(fc, { style: { color: '#2563eb', weight: 3, fillOpacity: 0.08 } }).addTo(map);
+      try{
+        const b = L.geoJSON(fc).getBounds();
+        map.fitBounds(b.pad(0.10));
+      }catch(_){}
+    }
+    document.getElementById('selGu').addEventListener('change', (e) => {
+      const name = e.target.value;
+      clearVisual();
+      if (name) highlightGu(name);
+    });
+    document.getElementById('inpGuSearch').addEventListener('change', (e) => {
+      const name = e.target.value;
+      const sel = document.getElementById('selGu');
+      const opts = Array.from(sel.options).map(o => o.value);
+      if (opts.includes(name)){
+        sel.value = name;
+        sel.dispatchEvent(new Event('change'));
+      } else {
+        alert('서울 구 목록에서 찾을 수 없습니다.');
+      }
+    });
+
+    // --- 점과 구의 포함 관계 ---
+    function binsInGu(name){
+      const feats = guPolys.filter(g => g.name === name).map(g => g.feature);
+      if (!feats.length) return [];
+      let geom = feats[0];
+      for (let i=1;i<feats.length;i++){ try{ geom = turf.union(geom, feats[i]); }catch(e){} }
+      const bins = [];
+      binMarkers.forEach(m => {
+        const pt = turf.point([m.getLatLng().lng, m.getLatLng().lat]);
+        const inside = turf.booleanPointInPolygon(pt, geom);
+        if (inside) bins.push(m);
+      });
+      return bins;
+    }
+
+    // --- 구의 대표(최적) 휴지통 (구 중심에 가장 가까운 마커) ---
+    function bestBinOfGu(name){
+      const feats = guPolys.filter(g => g.name === name).map(g => g.feature);
+      if (!feats.length) return null;
+      let geom = feats[0];
+      for (let i=1;i<feats.length;i++){ try{ geom = turf.union(geom, feats[i]); }catch(e){} }
+      const centroid = turf.centroid(geom).geometry.coordinates; // [lon,lat]
+      let best=null, bestD=Infinity;
+      binsInGu(name).forEach(m => {
+        const d = map.distance([centroid[1], centroid[0]], m.getLatLng());
+        if (d < bestD){ bestD = d; best = m; }
+      });
+      return best;
+    }
+
+    // --- 전체에서 내 위치 기준 가장 가까운 휴지통 ---
+    function nearestBinFrom(latlng){
+      let best=null, bestD=Infinity;
+      binMarkers.forEach(m => {
+        const d = map.distance(latlng, m.getLatLng());
+        if (d < bestD){ bestD = d; best = m; }
+      });
+      return { marker: best, meters: bestD };
+    }
+
+    // --- OSRM 경로 (도보) ---
+    async function routeFoot(src, dst){
+      const url = `https://router.project-osrm.org/route/v1/foot/${src.lng},${src.lat};${dst.lng},${dst.lat}?overview=full&geometries=geojson`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.code !== 'Ok' || !data.routes || !data.routes[0]){
+        return null;
+      }
+      return data.routes[0];
+    }
+
+    // --- 수동 위치 지정 ---
+    let pickMode = false;
+    let manualMarker = null;
+    function ensureManualMarker(latlng){
+      if (manualMarker){ manualMarker.setLatLng(latlng); return manualMarker; }
+      manualMarker = L.marker(latlng, { draggable:true }).addTo(map).bindPopup('임의 위치').openPopup();
+      manualMarker.on('dragend', () => {
+        const ll = manualMarker.getLatLng();
+        setInfo(`<small>임의 위치: ${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}</small>`);
+      });
+      return manualMarker;
+    }
+
+    // --- A/B 선택 및 경로 ---
+    let pickA = false, pickB = false;
+    let markerA = null, markerB = null;
+    function resetAB(){
+      pickA = pickB = false;
+      if (markerA && markerA.__origIcon){ markerA.setIcon(markerA.__origIcon); }
+      if (markerB && markerB.__origIcon){ markerB.setIcon(markerB.__origIcon); }
+      markerA = markerB = null;
+      setChips();
+      if (routeLayer){ map.removeLayer(routeLayer); routeLayer = null; }
+    }
+    function setChips(){
+      const chips = document.getElementById('chips');
+      chips.innerHTML = '';
+      if (markerA) chips.innerHTML += `<span class="chip"><span class="labelA">A</span> ${markerA.getLatLng().lat.toFixed(5)}, ${markerA.getLatLng().lng.toFixed(5)}</span>`;
+      if (markerB) chips.innerHTML += `<span class="chip"><span class="labelB">B</span> ${markerB.getLatLng().lat.toFixed(5)}, ${markerB.getLatLng().lng.toFixed(5)}</span>`;
+    }
+    function attachPickHandlers(){
+      binMarkers.forEach(m => {
+        if (m.__pickBound) return;
+        m.__pickBound = true;
+        m.on('click', (e) => {
+          if (pickA){
+            if (markerA && markerA.__origIcon){ markerA.setIcon(markerA.__origIcon); }
+            m.__origIcon = defaultIcon;
+            m.setIcon(iconA);
+            markerA = m; pickA = false; setChips();
+          } else if (pickB){
+            if (markerB && markerB.__origIcon){ markerB.setIcon(markerB.__origIcon); }
+            m.__origIcon = defaultIcon;
+            m.setIcon(iconB);
+            markerB = m; pickB = false; setChips();
+          }
+        });
+      });
+    }
+
+    // --- 초기 로드 ---
+    (async function init(){
+      const q = new URLSearchParams(location.search);
+      const csvName = q.get('csv') || '주소 수정.csv';
+      const geoName = q.get('geo') || 'HangJeongDong_ver20250401.geojson';
+
+      let csvOk = true, geoOk = true;
+
+      try {
+        const csvParsed = await loadCsvFromUrl(csvName);
+        setMarkersFromRows(csvParsed);
+        attachPickHandlers();
+      } catch (e){
+        csvOk = false;
+        console.warn('CSV 자동 로드 실패', e);
+      }
+
+      try {
+        const geojson = await loadGeoFromUrl(geoName);
+        buildGuLayers(geojson); // 서울만
+      } catch (e){
+        geoOk = false;
+        console.warn('GeoJSON 자동 로드 실패', e);
+      }
+
+      if (!csvOk || !geoOk){
+        document.getElementById('fileBox').style.display = 'block';
+        setInfo('<small>자동 로드 실패: 파일로 열었다면 아래에서 직접 선택하세요.</small>');
+      }
+    })();
+
+    // --- 이벤트 ---
+    document.getElementById('btnBestInGu').addEventListener('click', async () => {
+      const name = document.getElementById('selGu').value;
+      if (!name) { alert('먼저 구를 선택하세요.'); return; }
+      clearVisual();
+      highlightGu(name);
+      const best = bestBinOfGu(name);
+      if (!best){ alert('선택한 구 안에 휴지통이 없습니다.'); return; }
+      best.openPopup();
+      best.setIcon(redIcon);
+      nearestMarker = best;
+      map.panTo(best.getLatLng());
+    });
+
+    document.getElementById('btnLocate').addEventListener('click', async () => {
+      if (!navigator.geolocation){ alert('브라우저가 위치 서비스를 지원하지 않습니다.'); return; }
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const latlng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        if (meMarker) map.removeLayer(meMarker);
+        if (meCircle) map.removeLayer(meCircle);
+        meMarker = L.marker(latlng).addTo(map).bindPopup('현재 위치').openPopup();
+        meCircle = L.circle(latlng, { radius: pos.coords.accuracy }).addTo(map);
+        map.setView(latlng, 16);
+        clearVisual();
+        const { marker, meters } = nearestBinFrom(latlng);
+        if (!marker){ alert('휴지통 데이터가 없습니다.'); return; }
+        marker.setIcon(redIcon); nearestMarker = marker;
+        const route = await routeFoot(latlng, marker.getLatLng());
+        if (!route){
+          routeLayer = L.polyline([latlng, marker.getLatLng()], { weight: 6, opacity: 0.9 }).addTo(map);
+          setInfo(`<small>직선거리: ${Math.round(meters)} m (경로 API 실패)</small>`);
+          return;
+        }
+        routeLayer = L.geoJSON(route.geometry, { style: { weight: 7, opacity: 0.95 } }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding: [28,28] });
+        const mins = Math.round(route.duration / 60);
+        setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
+      }, (err) => {
+        alert('위치 접근 실패: ' + err.message + '\\n(HTTPS 또는 http://localhost 로 열어주세요)');
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    });
+
+    // 임의 위치 지정 토글 + 지도 클릭으로 핀 놓기
+    document.getElementById('btnPick').addEventListener('click', () => {
+      pickMode = !pickMode;
+      alert(pickMode ? '지도를 클릭해 임의 위치를 지정하세요. (마커는 드래그로 이동 가능)' : '임의 위치 지정을 종료합니다.');
+    });
+    map.on('click', async (e) => {
+      if (!pickMode) return;
+      const m = ensureManualMarker(e.latlng);
+      setInfo(`<small>임의 위치: ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}</small>`);
+      // 임의 위치에서 가장 가까운 휴지통 경로도 바로 안내
+      clearVisual();
+      const { marker, meters } = nearestBinFrom(e.latlng);
+      if (!marker){ alert('휴지통 데이터가 없습니다.'); return; }
+      marker.setIcon(redIcon); nearestMarker = marker;
+      const route = await routeFoot(e.latlng, marker.getLatLng());
+      if (!route){
+        routeLayer = L.polyline([e.latlng, marker.getLatLng()], { weight: 6, opacity: 0.9 }).addTo(map);
+        setInfo(`<small>직선거리: ${Math.round(meters)} m (경로 API 실패)</small>`);
+        return;
+      }
+      routeLayer = L.geoJSON(route.geometry, { style: { weight: 7, opacity: 0.95 } }).addTo(map);
+      map.fitBounds(routeLayer.getBounds(), { padding: [28,28] });
+      const mins = Math.round(route.duration / 60);
+      setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
+    });
+
+    // A/B 선택 버튼
+    document.getElementById('btnPickA').addEventListener('click', () => {
+      pickA = true; pickB = false;
+      alert('A로 지정할 휴지통 마커를 클릭하세요.');
+    });
+    document.getElementById('btnPickB').addEventListener('click', () => {
+      pickB = true; pickA = false;
+      alert('B로 지정할 휴지통 마커를 클릭하세요.');
+    });
+    document.getElementById('btnResetAB').addEventListener('click', resetAB);
+    document.getElementById('btnRouteAB').addEventListener('click', async () => {
+      if (!(markerA && markerB)){ alert('A와 B가 모두 선택되어야 합니다.'); return; }
+      if (routeLayer){ map.removeLayer(routeLayer); routeLayer = null; }
+      const A = markerA.getLatLng(), B = markerB.getLatLng();
+      try {
+        const route = await routeFoot(A, B);
+        if (!route){
+          routeLayer = L.polyline([A, B], { weight: 6, opacity: 0.9 }).addTo(map);
+          setInfo('<small>경로 API 실패 - 직선 연결</small>');
+          return;
+        }
+        routeLayer = L.geoJSON(route.geometry, { style: { weight: 7, opacity: 0.95 } }).addTo(map);
+        map.fitBounds(routeLayer.getBounds(), { padding: [28,28] });
+        const mins = Math.round(route.duration / 60);
+        setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
+      } catch (e){
+        routeLayer = L.polyline([A, B], { weight: 6, opacity: 0.9 }).addTo(map);
+        setInfo('<small>경로 API 오류 - 직선 연결</small>');
+      }
+    });
+
+    document.getElementById('btnClear').addEventListener('click', () => {
+      clearVisual();
+      if (meMarker) { map.removeLayer(meMarker); meMarker = null; }
+      if (meCircle) { map.removeLayer(meCircle); meCircle = null; }
+      if (manualMarker) { map.removeLayer(manualMarker); manualMarker = null; }
+      resetAB();
+      setInfo('초기화됨. 필요한 기능을 선택하세요.');
+    });
+
+    // --- 파일 직접 선택 (file:// 환경 대안) ---
+    function readTextFile(file){
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsText(file, 'utf-8');
+      });
+    }
+    document.getElementById('fileCsv').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const text = await readTextFile(f);
+      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+      setMarkersFromRows(parsed);
+      attachPickHandlers();
+    });
+    document.getElementById('fileGeo').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      const text = await readTextFile(f);
+      const geo = JSON.parse(text);
+      buildGuLayers(geo); // 서울만
+    });
+
+    // 새로 로드된 마커에도 A/B 클릭 핸들러 연결
+    const origAddLayer = cluster.addLayer.bind(cluster);
+    cluster.addLayer = function(layer){
+      origAddLayer(layer);
+      setTimeout(attachPickHandlers, 0);
+      return this;
+    };
+  </script>
+</body>
+</html>
