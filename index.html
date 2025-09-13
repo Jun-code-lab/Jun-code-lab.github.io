@@ -106,6 +106,7 @@
     function isWgs84(lat, lon){ return lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132; }
 
     window.setAsA = function() {
+        alert("출발 버튼 클릭됨!");
         if (!currentlyClickedMarker) return;
         if (markerA) markerA.setImage(defaultMarkerImage);
         currentlyClickedMarker.setImage(imageA);
