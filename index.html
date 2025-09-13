@@ -712,6 +712,7 @@
         const bounds = new kakao.maps.LatLngBounds();
         bounds.extend(A);
         bounds.extend(B);
+        console.log('Setting Bounds with:', bounds.toString());
         // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
         map.setBounds(bounds, {
             padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
