@@ -602,7 +602,7 @@
         const bounds = new kakao.maps.LatLngBounds();
         bounds.extend(latlng);
         bounds.extend(marker.getPosition());
-        routePolyline.getPath().forEach(p => bounds.extend(p));
+        // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
         map.setBounds(bounds, {
             padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
         });
@@ -662,9 +662,9 @@
       const bounds = new kakao.maps.LatLngBounds();
       bounds.extend(latlng);
       bounds.extend(marker.getPosition());
-      routePolyline.getPath().forEach(p => bounds.extend(p));
+      // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
       map.setBounds(bounds, {
-            padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
+          padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
       });
 
       const mins = Math.round(route.duration / 60);
@@ -712,7 +712,7 @@
         const bounds = new kakao.maps.LatLngBounds();
         bounds.extend(A);
         bounds.extend(B);
-        routePolyline.getPath().forEach(p => bounds.extend(p));
+        // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
         map.setBounds(bounds, {
             padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
         });
