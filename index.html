@@ -75,7 +75,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
   <script>
     // --- 카카오맵 초기 설정 ---
-    const MAP_CENTER = new kakao.maps.LatLng(37.5665, 126.9780); // 서울 시청
+    const MAP_CENTER = new kakao.maps.LatLng(37.5665, 126.9780);
     const mapContainer = document.getElementById('map');
     const mapOption = { center: MAP_CENTER, level: 8 };
     const map = new kakao.maps.Map(mapContainer, mapOption);
@@ -316,14 +316,26 @@
 
     function resetAB(){
       pickA = pickB = false;
-      if (markerA) markerA.setImage(defaultMarkerImage);
-      if (markerB) markerB.setImage(defaultMarkerImage);
+      
+      // ▼▼▼ 수정된 부분 ▼▼▼
+      // A, B 마커를 지도에서 제거하고, 아이콘을 원래대로 돌려놓습니다.
+      if (markerA) {
+          markerA.setMap(null);
+          markerA.setImage(defaultMarkerImage);
+      }
+      if (markerB) {
+          markerB.setMap(null);
+          markerB.setImage(defaultMarkerImage);
+      }
+
       markerA = markerB = null;
       setChips();
       if (routePolyline) routePolyline.setMap(null);
       
-      // ▼▼▼ 수정된 부분 ▼▼▼
-      clusterer.setMap(map);
+      // 클러스터러에 모든 마커를 다시 추가합니다.
+      clusterer.clear(); // 혹시 모를 중복을 막기 위해 클리어
+      const allKakaoMarkers = binMarkers.map(bm => bm.kakaoMarker);
+      clusterer.addMarkers(allKakaoMarkers);
     }
     function setChips(){
       const chips = document.getElementById('chips');
@@ -479,7 +491,7 @@
       if (!(markerA && markerB)){ alert('A와 B가 모두 선택되어야 합니다.'); return; }
 
       // ▼▼▼ 수정된 부분 ▼▼▼
-      clusterer.setMap(null); 
+      clusterer.clear(); // 클러스터러의 모든 마커를 제거합니다.
       markerA.setMap(map);
       markerB.setMap(map);
 
