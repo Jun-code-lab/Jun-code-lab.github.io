@@ -89,8 +89,10 @@
 
     let defaultMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png', new kakao.maps.Size(24, 35), { offset: new kakao.maps.Point(12, 35) });
     let redMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/red_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
-    let imageA = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/a_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
-    let imageB = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/b_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
+    
+    // ▼▼▼ 수정된 부분: 403 오류가 나지 않는 다른 기본 마커 이미지로 변경 ▼▼▼
+    let imageA = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/marker_red.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
+    let imageB = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/marker_blue.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
 
     function setInfo(html){ document.getElementById('info').innerHTML = html; }
     function clearVisual(){
@@ -418,11 +420,9 @@
         routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
 
         // ▼▼▼ 수정된 부분 ▼▼▼
-        if (path && path.length > 0) {
-            const bounds = new kakao.maps.LatLngBounds();
-            path.forEach(point => bounds.extend(point));
-            map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
-        }
+        const bounds = new kakao.maps.LatLngBounds();
+        path.forEach(point => bounds.extend(point));
+        map.setBounds(bounds);
         
         const mins = Math.round(route.duration / 60);
         setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
@@ -460,11 +460,9 @@
       routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
 
       // ▼▼▼ 수정된 부분 ▼▼▼
-      if (path && path.length > 0) {
-          const bounds = new kakao.maps.LatLngBounds();
-          path.forEach(point => bounds.extend(point));
-          map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
-      }
+      const bounds = new kakao.maps.LatLngBounds();
+      path.forEach(point => bounds.extend(point));
+      map.setBounds(bounds);
 
       const mins = Math.round(route.duration / 60);
       setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
@@ -490,11 +488,9 @@
         routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
         
         // ▼▼▼ 수정된 부분 ▼▼▼
-        if (path && path.length > 0) {
-            const bounds = new kakao.maps.LatLngBounds();
-            path.forEach(point => bounds.extend(point));
-            map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
-        }
+        const bounds = new kakao.maps.LatLngBounds();
+        path.forEach(point => bounds.extend(point));
+        map.setBounds(bounds);
 
         const mins = Math.round(route.duration / 60);
         setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
