@@ -24,6 +24,27 @@
     .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; margin-right:6px;}
     .labelA { background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:6px; font-weight:600; }
     .labelB { background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:6px; font-weight:600; }
+    
+    /* --- 수정: 토글 버튼 및 숨김 클래스 CSS 추가 --- */
+    .toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1001; /* 패널보다 위에 오도록 설정 */
+      background: #fff;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+      font-weight: 500;
+    }
+    .toggle-btn:hover {
+      background: #f9fafb;
+    }
+    .panel.hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -31,7 +52,7 @@
   <div class="panel">
     <h1>서울 휴지통 · (서울 한정) 검색/임의위치/A↔B 경로</h1>
     <div class="small">
-      CSV/GeoJSON을 자동으로 읽습니다. 기본 파일명: <code>주소 수정.csv</code>, <code>HangJeongDong_ver20250401.geojson</code><br>
+      CSV/GeoJSON을 자동으로 읽습니다. 기본 파일명: <code>주소 수정.csv</code>, <code>HangJeongDong_Seoul.geojson</code><br>
       다른 파일은 <code>?csv=파일.csv&geo=파일.geojson</code>를 사용하세요.
       <div style="margin-top:6px;"><span class="pill seoul">구 선택은 <b>서울특별시</b>만 표시</span></div>
     </div>
@@ -68,6 +89,8 @@
       <input type="file" id="fileGeo" accept=".geojson,.json" />
     </div>
   </div>
+
+  <button id="togglePanelBtn" class="toggle-btn">UI 숨기기</button>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
@@ -409,7 +432,7 @@
         const mins = Math.round(route.duration / 60);
         setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
       }, (err) => {
-        alert('위치 접근 실패: ' + err.message + '\\n(HTTPS 또는 http://localhost 로 열어주세요)');
+        alert('위치 접근 실패: ' + err.message + '\n(HTTPS 또는 http://localhost 로 열어주세요)');
       }, { enableHighAccuracy: true, timeout: 10000 });
     });
 
@@ -477,6 +500,14 @@
       if (manualMarker) { map.removeLayer(manualMarker); manualMarker = null; }
       resetAB();
       setInfo('초기화됨. 필요한 기능을 선택하세요.');
+    });
+
+    // --- 수정: UI 토글 버튼 이벤트 리스너 추가 ---
+    const panel = document.querySelector('.panel');
+    const toggleBtn = document.getElementById('togglePanelBtn');
+    toggleBtn.addEventListener('click', () => {
+      panel.classList.toggle('hidden');
+      toggleBtn.textContent = panel.classList.contains('hidden') ? 'UI 보이기' : 'UI 숨기기';
     });
 
     // --- 파일 직접 선택 (file:// 환경 대안) ---
