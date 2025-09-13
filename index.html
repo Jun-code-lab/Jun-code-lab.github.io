@@ -112,6 +112,8 @@
         markerA = currentlyClickedMarker;
         setChips();
         selectionOverlay.setMap(null);
+        const pos = currentlyClickedMarker.getPosition();
+        setInfo(`<small><span class="labelA" style="margin-right:4px;">출발</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
     }
     window.setAsB = function() {
         if (!currentlyClickedMarker) return;
@@ -120,6 +122,8 @@
         markerB = currentlyClickedMarker;
         setChips();
         selectionOverlay.setMap(null);
+        const pos = currentlyClickedMarker.getPosition();
+        setInfo(`<small><span class="labelB" style="margin-right:4px;">도착</span> 지점 선택됨: ${pos.getLat().toFixed(5)}, ${pos.getLng().toFixed(5)}</small>`);
     }
 
     async function loadCsvFromUrl(url){
@@ -339,7 +343,6 @@
     let markerA = null, markerB = null;
 
     function resetAB(){
-      // ▼▼▼ 로직 오류 수정: 이전에 선택했던 A, B 마커의 이미지를 되돌립니다. ▼▼▼
       if (markerA) {
           markerA.setImage(defaultMarkerImage);
       }
