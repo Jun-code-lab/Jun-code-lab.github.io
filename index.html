@@ -14,39 +14,15 @@
     .select, .input { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid #d1d5db; background: #fff; }
     .small { font-size: 12px; color: #6b7280; line-height: 1.3; }
     .filebox { margin-top: 6px; display: none; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 11px; }
     .legend { font-size: 12px; color: #555; margin-top: 8px; }
     .pill { display:inline-block; padding:4px 8px; border-radius:999px; border:1px solid #ddd; margin:2px 2px 0 0; font-size:12px; }
     .seoul { background:#dcfce7; color:#065f46; border-color:#bbf7d0; }
     .chip { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid #ddd; border-radius:999px; font-size:12px; margin-right:6px;}
     .labelA { background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:6px; font-weight:600; }
     .labelB { background:#dbeafe; color:#1e40af; padding:2px 6px; border-radius:6px; font-weight:600; }
-    .toggle-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1001;
-      background: #fff;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      padding: 8px 12px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,.1);
-      font-weight: 500;
-    }
-    .toggle-btn:hover {
-      background: #f9fafb;
-    }
-    .panel.hidden {
-      display: none;
-    }
-    /* 카카오맵 기본 마커 CSS 오버라이드 (A,B 마커용) */
-    .kakao-map-marker {
-        position: absolute;
-        top: 0;
-        left: 0;
-        cursor: pointer;
-    }
+    .toggle-btn { position: absolute; top: 10px; right: 10px; z-index: 1001; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; padding: 8px 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.1); font-weight: 500; }
+    .toggle-btn:hover { background: #f9fafb; }
+    .panel.hidden { display: none; }
   </style>
 </head>
 <body>
@@ -101,45 +77,20 @@
     // --- 카카오맵 초기 설정 ---
     const MAP_CENTER = new kakao.maps.LatLng(37.5665, 126.9780); // 서울 시청
     const mapContainer = document.getElementById('map');
-    const mapOption = {
-        center: MAP_CENTER,
-        level: 8 // 숫자가 작을수록 확대 (Leaflet과 반대)
-    };
+    const mapOption = { center: MAP_CENTER, level: 8 };
     const map = new kakao.maps.Map(mapContainer, mapOption);
 
-    // 마커 클러스터러 생성
-    const clusterer = new kakao.maps.MarkerClusterer({
-        map: map,
-        averageCenter: true,
-        minLevel: 7 // 클러스터 할 최소 지도 레벨 (확대 레벨)
-    });
+    const clusterer = new kakao.maps.MarkerClusterer({ map: map, averageCenter: true, minLevel: 7 });
 
-    const binMarkers = []; // { kakaoMarker, meta_data }
+    const binMarkers = [];
     let meMarker = null, meCircle = null, routePolyline = null, highlightPolygon = null;
-    let guPolys = []; // {name, feature(Polygon/MultiPolygon), kakaoPolygon}
-    let nearestMarkerInfo = null; // { marker: kakaoMarker, meters: number }
+    let guPolys = [];
+    let nearestMarkerInfo = null;
 
-    let defaultMarkerImage = new kakao.maps.MarkerImage(
-        'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png',
-        new kakao.maps.Size(24, 35),
-        { offset: new kakao.maps.Point(12, 35) }
-    );
-    let redMarkerImage = new kakao.maps.MarkerImage(
-        'https://t1.daumcdn.net/map_go/marker/red_b.png',
-        new kakao.maps.Size(30, 42),
-        { offset: new kakao.maps.Point(15, 42) }
-    );
-    let imageA = new kakao.maps.MarkerImage(
-        'https://t1.daumcdn.net/map_go/marker/a_b.png',
-        new kakao.maps.Size(30, 42),
-        { offset: new kakao.maps.Point(15, 42) }
-    );
-    let imageB = new kakao.maps.MarkerImage(
-        'https://t1.daumcdn.net/map_go/marker/b_b.png',
-        new kakao.maps.Size(30, 42),
-        { offset: new kakao.maps.Point(15, 42) }
-    );
-
+    let defaultMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png', new kakao.maps.Size(24, 35), { offset: new kakao.maps.Point(12, 35) });
+    let redMarkerImage = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/red_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
+    let imageA = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/a_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
+    let imageB = new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/b_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) });
 
     function setInfo(html){ document.getElementById('info').innerHTML = html; }
     function clearVisual(){
@@ -156,13 +107,11 @@
     }
     function isWgs84(lat, lon){ return lat >= 33 && lat <= 39 && lon >= 124 && lon <= 132; }
 
-    // --- CSV 로드 ---
     async function loadCsvFromUrl(url){
       const res = await fetch(encodeURI(url));
       if (!res.ok) throw new Error('CSV HTTP ' + res.status);
       const text = await res.text();
-      const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-      return parsed;
+      return Papa.parse(text, { header: true, skipEmptyLines: true });
     }
 
     function setMarkersFromRows(rows){
@@ -180,35 +129,22 @@
       const newMarkers = [];
       rows.data.forEach(row => {
         const lat = toNumber(row[latKey]); const lon = toNumber(row[lonKey]);
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-        if (!isWgs84(lat, lon)) return;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !isWgs84(lat, lon)) return;
+        
         const name = labelKey ? (row[labelKey] ?? '') : '';
-
         const position = new kakao.maps.LatLng(lat, lon);
-        const marker = new kakao.maps.Marker({
-            position: position,
-            image: defaultMarkerImage // 기본 마커 이미지 설정
-        });
+        const marker = new kakao.maps.Marker({ position: position, image: defaultMarkerImage });
+        const infowindow = new kakao.maps.InfoWindow({ content: `<div style="padding:5px;font-size:12px;">${name}<br><small>${lat.toFixed(6)}, ${lon.toFixed(6)}</small></div>` });
 
-        const infowindow = new kakao.maps.InfoWindow({
-            content: `<div style="padding:5px;font-size:12px;">${name}<br><small>${lat.toFixed(6)}, ${lon.toFixed(6)}</small></div>`
-        });
+        kakao.maps.event.addListener(marker, 'mouseover', () => infowindow.open(map, marker));
+        kakao.maps.event.addListener(marker, 'mouseout', () => infowindow.close());
 
-        // 마커에 마우스오버, 마우스아웃 이벤트 등록
-        kakao.maps.event.addListener(marker, 'mouseover', function() {
-            infowindow.open(map, marker);
-        });
-        kakao.maps.event.addListener(marker, 'mouseout', function() {
-            infowindow.close();
-        });
-
-        const binData = { kakaoMarker: marker, meta: { name: String(name || '휴지통'), lat, lon } };
-        binMarkers.push(binData);
+        binMarkers.push({ kakaoMarker: marker, meta: { name: String(name || '휴지통'), lat, lon } });
         newMarkers.push(marker);
       });
 
       clusterer.addMarkers(newMarkers);
-      attachPickHandlers(); // 마커 클릭 이벤트 재연결
+      attachPickHandlers();
 
       if (binMarkers.length){
         const bounds = new kakao.maps.LatLngBounds();
@@ -221,7 +157,6 @@
       }
     }
 
-    // --- GeoJSON 로드 & 구 목록 구성 (서울만) ---
     async function loadGeoFromUrl(url){
       const res = await fetch(encodeURI(url));
       if (!res.ok) throw new Error('GEO HTTP ' + res.status);
@@ -229,14 +164,10 @@
     }
     function isSeoulProps(props){
       if (!props) return false;
-      const candid = [
-        props.CTP_KOR_NM, props.SIDO, props.sido, props.sido_nm, props.SIDO_NM, props.광역시도명, props.시도명
-      ].filter(Boolean).map(String);
+      const candid = [props.CTP_KOR_NM, props.SIDO, props.sido, props.sido_nm, props.SIDO_NM, props.광역시도명, props.시도명].filter(Boolean).map(String);
       if (candid.some(v => v.includes('서울특별시') || v === '서울특별시')) return true;
-      for (const k of ['SIG_CD','SIGCD','ADM_CD','adm_cd','sig_cd','sgg_cd']) {
-        if (props[k] && String(props[k]).startsWith('11')) return true;
-      }
-      for (const k in props){ try { if (String(props[k]).includes('서울특별시')) return true; } catch(_){} }
+      for (const k of ['SIG_CD','SIGCD','ADM_CD','adm_cd','sig_cd','sgg_cd']) { if (props[k] && String(props[k]).startsWith('11')) return true; }
+      try { for (const k in props){ if (String(props[k]).includes('서울특별시')) return true; } } catch(_){}
       return false;
     }
     function findGuName(props){
@@ -246,93 +177,60 @@
       return null;
     }
     
-    // GeoJSON Feature를 카카오맵 Polygon으로 변환
     function createKakaoPolygonFromGeoJSON(feature) {
         let paths = [];
         const coordinates = feature.geometry.coordinates;
+        const type = feature.geometry.type;
 
-        if (feature.geometry.type === 'Polygon') {
+        if (type === 'Polygon') {
             paths.push(coordinates[0].map(c => new kakao.maps.LatLng(c[1], c[0])));
-        } else if (feature.geometry.type === 'MultiPolygon') {
-            coordinates.forEach(poly => {
-                paths.push(poly[0].map(c => new kakao.maps.LatLng(c[1], c[0])));
-            });
+        } else if (type === 'MultiPolygon') {
+            coordinates.forEach(poly => paths.push(poly[0].map(c => new kakao.maps.LatLng(c[1], c[0]))));
         }
-
-        return new kakao.maps.Polygon({
-            path: paths,
-            strokeWeight: 1,
-            strokeColor: '#374151',
-            strokeOpacity: 0.8,
-            fillColor: '#374151',
-            fillOpacity: 0.05
-        });
+        return new kakao.maps.Polygon({ path: paths, strokeWeight: 1, strokeColor: '#374151', strokeOpacity: 0.8, fillColor: '#374151', fillOpacity: 0.05 });
     }
 
     function buildGuLayers(geojson){
-      guPolys.forEach(g => { if(g.kakaoPolygon) g.kakaoPolygon.setMap(null); }); // 기존 폴리곤 제거
+      guPolys.forEach(g => { if(g.kakaoPolygon) g.kakaoPolygon.setMap(null); });
       guPolys = [];
       const features = geojson.type === 'FeatureCollection' ? geojson.features : [geojson];
       const seoulFeats = features.filter(f => isSeoulProps(f.properties));
       seoulFeats.forEach(f => {
         const name = findGuName(f.properties || {}) || '(이름없음)';
         const kakaoPolygon = createKakaoPolygonFromGeoJSON(f);
-        kakaoPolygon.setMap(map); // 지도에 폴리곤 표시
+        kakaoPolygon.setMap(map);
         guPolys.push({ name, feature: f, kakaoPolygon: kakaoPolygon });
       });
 
-      // 구 목록 세팅 (서울만)
-      const sel = document.getElementById('selGu');
-      const datalist = document.getElementById('guList');
+      const sel = document.getElementById('selGu'), datalist = document.getElementById('guList');
       sel.innerHTML = '<option value="">– (서울) 구 선택 –</option>';
       datalist.innerHTML = '';
-      const names = [...new Set(guPolys.map(g => g.name))].sort();
-      names.forEach(n => {
+      [...new Set(guPolys.map(g => g.name))].sort().forEach(n => {
         const opt = document.createElement('option'); opt.value = n; datalist.appendChild(opt);
         const o2 = document.createElement('option'); o2.value = n; o2.textContent = n; sel.appendChild(o2);
       });
       document.getElementById('chips').innerHTML += ' <span class="pill seoul">GeoJSON (서울만) 로드 완료</span>';
     }
 
-    // --- 구 선택 & 검색 ---
     function highlightGu(name){
       if (highlightPolygon) { highlightPolygon.setMap(null); highlightPolygon = null; }
       
       const foundFeats = guPolys.filter(g => g.name === name).map(g => g.feature);
       if (!foundFeats.length){ return; }
 
-      // 여러 Polygon/MultiPolygon을 하나의 MultiPolygon으로 합치기 (turf 사용)
       let combinedGeom = foundFeats[0];
-      for (let i = 1; i < foundFeats.length; i++) {
-          try {
-              combinedGeom = turf.union(combinedGeom, foundFeats[i]);
-          } catch (e) {
-              console.error("Turf union failed:", e);
-              // 합치기 실패 시 개별 폴리곤으로 처리 또는 오류 메시지
-          }
-      }
+      for (let i = 1; i < foundFeats.length; i++) { try { combinedGeom = turf.union(combinedGeom, foundFeats[i]); } catch (e) { console.error("Turf union failed:", e); } }
 
-      // 합쳐진 GeoJSON geometry를 카카오맵 Polygon으로 변환하여 하이라이트
       let paths = [];
       if (combinedGeom.geometry.type === 'Polygon') {
           paths.push(combinedGeom.geometry.coordinates[0].map(c => new kakao.maps.LatLng(c[1], c[0])));
       } else if (combinedGeom.geometry.type === 'MultiPolygon') {
-          combinedGeom.geometry.coordinates.forEach(poly => {
-              paths.push(poly[0].map(c => new kakao.maps.LatLng(c[1], c[0])));
-          });
+          combinedGeom.geometry.coordinates.forEach(poly => paths.push(poly[0].map(c => new kakao.maps.LatLng(c[1], c[0]))));
       }
       
-      highlightPolygon = new kakao.maps.Polygon({
-          path: paths,
-          strokeWeight: 3,
-          strokeColor: '#2563eb',
-          strokeOpacity: 0.8,
-          fillColor: '#2563eb',
-          fillOpacity: 0.08
-      });
+      highlightPolygon = new kakao.maps.Polygon({ path: paths, strokeWeight: 3, strokeColor: '#2563eb', strokeOpacity: 0.8, fillColor: '#2563eb', fillOpacity: 0.08 });
       highlightPolygon.setMap(map);
 
-      // 폴리곤 영역으로 지도 이동
       const bounds = new kakao.maps.LatLngBounds();
       paths.flat().forEach(latlng => bounds.extend(latlng));
       map.setBounds(bounds);
@@ -346,8 +244,7 @@
     document.getElementById('inpGuSearch').addEventListener('change', (e) => {
       const name = e.target.value;
       const sel = document.getElementById('selGu');
-      const opts = Array.from(sel.options).map(o => o.value);
-      if (opts.includes(name)){
+      if (Array.from(sel.options).some(o => o.value === name)){
         sel.value = name;
         sel.dispatchEvent(new Event('change'));
       } else {
@@ -355,22 +252,14 @@
       }
     });
 
-    // --- 점과 구의 포함 관계 ---
     function binsInGu(name){
       const feats = guPolys.filter(g => g.name === name).map(g => g.feature);
       if (!feats.length) return [];
       let geom = feats[0];
       for (let i=1;i<feats.length;i++){ try{ geom = turf.union(geom, feats[i]); }catch(e){} }
-      const bins = [];
-      binMarkers.forEach(bm => {
-        const pt = turf.point([bm.kakaoMarker.getPosition().getLng(), bm.kakaoMarker.getPosition().getLat()]);
-        const inside = turf.booleanPointInPolygon(pt, geom);
-        if (inside) bins.push(bm);
-      });
-      return bins;
+      return binMarkers.filter(bm => turf.booleanPointInPolygon(turf.point([bm.kakaoMarker.getPosition().getLng(), bm.kakaoMarker.getPosition().getLat()]), geom));
     }
 
-    // --- 구의 대표(최적) 휴지통 (구 중심에 가장 가까운 마커) ---
     function bestBinOfGu(name){
       const feats = guPolys.filter(g => g.name === name).map(g => g.feature);
       if (!feats.length) return null;
@@ -378,37 +267,32 @@
       for (let i=1;i<feats.length;i++){ try{ geom = turf.union(geom, feats[i]); }catch(e){} }
       const centroid = turf.centroid(geom).geometry.coordinates; // [lon,lat]
       const centerLatLng = new kakao.maps.LatLng(centroid[1], centroid[0]);
-
+      
       let bestBin = null, bestD = Infinity;
       binsInGu(name).forEach(bm => {
-        const distance = kakao.maps.LatLng.prototype.getDistance(centerLatLng, bm.kakaoMarker.getPosition());
-        if (distance < bestD){ bestD = distance; bestBin = bm; }
+        const d = kakao.maps.LatLng.prototype.getDistance(centerLatLng, bm.kakaoMarker.getPosition());
+        if (d < bestD){ bestD = d; bestBin = bm; }
       });
       return bestBin;
     }
 
-    // --- 전체에서 내 위치 기준 가장 가까운 휴지통 ---
     function nearestBinFrom(latlng){
       let bestBin = null, bestD = Infinity;
       binMarkers.forEach(bm => {
-        const distance = kakao.maps.LatLng.prototype.getDistance(latlng, bm.kakaoMarker.getPosition());
-        if (distance < bestD){ bestD = distance; bestBin = bm; }
+        const d = kakao.maps.LatLng.prototype.getDistance(latlng, bm.kakaoMarker.getPosition());
+        if (d < bestD){ bestD = d; bestBin = bm; }
       });
       return { marker: bestBin ? bestBin.kakaoMarker : null, meters: bestD };
     }
 
-    // --- OSRM 경로 (도보) ---
     async function routeFoot(src, dst){
       const url = `https://router.project-osrm.org/route/v1/foot/${src.getLng()},${src.getLat()};${dst.getLng()},${dst.getLat()}?overview=full&geometries=geojson`;
       const res = await fetch(url);
       const data = await res.json();
-      if (data.code !== 'Ok' || !data.routes || !data.routes[0]){
-        return null;
-      }
+      if (data.code !== 'Ok' || !data.routes || !data.routes[0]) return null;
       return data.routes[0];
     }
 
-    // --- 수동 위치 지정 ---
     let pickMode = false;
     let manualMarker = null;
     let manualMarkerInfowindow = new kakao.maps.InfoWindow({ content: '임의 위치', removable: true });
@@ -417,11 +301,7 @@
       if (manualMarker){
         manualMarker.setPosition(latlng);
       } else {
-        manualMarker = new kakao.maps.Marker({
-            position: latlng,
-            draggable: true,
-            map: map
-        });
+        manualMarker = new kakao.maps.Marker({ position: latlng, draggable: true, map: map });
         kakao.maps.event.addListener(manualMarker, 'dragend', () => {
           const ll = manualMarker.getPosition();
           setInfo(`<small>임의 위치: ${ll.getLat().toFixed(6)}, ${ll.getLng().toFixed(6)}</small>`);
@@ -431,19 +311,16 @@
       return manualMarker;
     }
 
-    // --- A/B 선택 및 경로 ---
     let pickA = false, pickB = false;
-    let markerA = null, markerB = null; // A/B로 지정된 kakao.maps.Marker 객체
-    let markerA_info = null, markerB_info = null; // A/B로 지정된 binMarkers의 객체
+    let markerA = null, markerB = null;
 
     function resetAB(){
       pickA = pickB = false;
-      if (markerA) { markerA.setImage(defaultMarkerImage); }
-      if (markerB) { markerB.setImage(defaultMarkerImage); }
+      if (markerA) markerA.setImage(defaultMarkerImage);
+      if (markerB) markerB.setImage(defaultMarkerImage);
       markerA = markerB = null;
-      markerA_info = markerB_info = null;
       setChips();
-      if (routePolyline){ routePolyline.setMap(null); routePolyline = null; }
+      if (routePolyline) routePolyline.setMap(null);
     }
     function setChips(){
       const chips = document.getElementById('chips');
@@ -453,25 +330,18 @@
     }
 
     function attachPickHandlers(){
-      // 클러스터러의 마커 클릭 이벤트를 활용
       binMarkers.forEach(bm => {
-        // 기존 리스너 제거 (중복 방지)
-        if (bm.kakaoMarker.__pickListener) {
-            kakao.maps.event.removeListener(bm.kakaoMarker, 'click', bm.kakaoMarker.__pickListener);
-        }
-
+        if (bm.kakaoMarker.__pickListener) kakao.maps.event.removeListener(bm.kakaoMarker, 'click', bm.kakaoMarker.__pickListener);
         bm.kakaoMarker.__pickListener = function() {
           if (pickA){
-            if (markerA) { markerA.setImage(defaultMarkerImage); }
+            if (markerA) markerA.setImage(defaultMarkerImage);
             bm.kakaoMarker.setImage(imageA);
             markerA = bm.kakaoMarker;
-            markerA_info = bm;
             pickA = false; setChips();
           } else if (pickB){
-            if (markerB) { markerB.setImage(defaultMarkerImage); }
+            if (markerB) markerB.setImage(defaultMarkerImage);
             bm.kakaoMarker.setImage(imageB);
             markerB = bm.kakaoMarker;
-            markerB_info = bm;
             pickB = false; setChips();
           }
         };
@@ -479,31 +349,20 @@
       });
     }
 
-    // --- 초기 로드 ---
     (async function init(){
       const q = new URLSearchParams(location.search);
       const csvName = q.get('csv') || '주소 수정.csv';
-      const geoName = q.get('geo') || 'HangJeongDong_Seoul.geojson'; // 파일명 수정
-
-      let csvOk = true, geoOk = true;
+      const geoName = q.get('geo') || 'HangJeongDong_Seoul.geojson';
 
       try {
         const csvParsed = await loadCsvFromUrl(csvName);
         setMarkersFromRows(csvParsed);
-      } catch (e){
-        csvOk = false;
-        console.warn('CSV 자동 로드 실패', e);
-      }
-
+      } catch (e) { console.warn('CSV 자동 로드 실패', e); }
       try {
         const geojson = await loadGeoFromUrl(geoName);
-        buildGuLayers(geojson); // 서울만
-      } catch (e){
-        geoOk = false;
+        buildGuLayers(geojson);
+      } catch (e) {
         console.warn('GeoJSON 자동 로드 실패', e);
-      }
-
-      if (!csvOk || !geoOk){
         document.getElementById('fileBox').style.display = 'block';
         setInfo('<small>자동 로드 실패: 파일로 열었다면 아래에서 직접 선택하세요.</small>');
       }
@@ -518,16 +377,12 @@
       const best = bestBinOfGu(name);
       if (!best){ alert('선택한 구 안에 휴지통이 없습니다.'); return; }
       
-      if (nearestMarkerInfo && nearestMarkerInfo.marker) {
-          nearestMarkerInfo.marker.setImage(defaultMarkerImage);
-      }
+      if (nearestMarkerInfo && nearestMarkerInfo.marker) nearestMarkerInfo.marker.setImage(defaultMarkerImage);
       best.kakaoMarker.setImage(redMarkerImage);
-      nearestMarkerInfo = { marker: best.kakaoMarker, meters: 0 }; // meters는 추후 계산 필요
+      nearestMarkerInfo = { marker: best.kakaoMarker, meters: 0 };
 
       map.panTo(best.kakaoMarker.getPosition());
-      // 마커의 인포윈도우는 오버 시 열리므로, 클릭 시 열리도록 명시적으로 호출
       kakao.maps.event.trigger(best.kakaoMarker, 'mouseover');
-      // 지도 이동 후 인포윈도우가 가려지는 경우를 대비하여 잠시 후 다시 열기
       setTimeout(() => kakao.maps.event.trigger(best.kakaoMarker, 'mouseover'), 500);
     });
 
@@ -539,74 +394,36 @@
         if (meMarker) meMarker.setMap(null);
         if (meCircle) meCircle.setMap(null);
 
-        meMarker = new kakao.maps.Marker({
-            map: map,
-            position: latlng,
-            image: new kakao.maps.MarkerImage( // 내 위치 마커 아이콘
-                'https://t1.daumcdn.net/map_go/marker/blue_b.png',
-                new kakao.maps.Size(30, 42),
-                { offset: new kakao.maps.Point(15, 42) }
-            )
-        });
-        const meInfowindow = new kakao.maps.InfoWindow({ content: '현재 위치', removable: true });
-        meInfowindow.open(map, meMarker);
-
-        meCircle = new kakao.maps.Circle({
-            map: map,
-            center: latlng,
-            radius: pos.coords.accuracy,
-            strokeWeight: 1,
-            strokeColor: '#0070FF',
-            strokeOpacity: 0.7,
-            strokeStyle: 'solid',
-            fillColor: '#0070FF',
-            fillOpacity: 0.2
-        });
-
-        map.setLevel(3, { anchor: latlng }); // 확대 레벨 설정
+        meMarker = new kakao.maps.Marker({ map: map, position: latlng, image: new kakao.maps.MarkerImage('https://t1.daumcdn.net/map_go/marker/blue_b.png', new kakao.maps.Size(30, 42), { offset: new kakao.maps.Point(15, 42) }) });
+        new kakao.maps.InfoWindow({ content: '현재 위치', removable: true }).open(map, meMarker);
+        meCircle = new kakao.maps.Circle({ map: map, center: latlng, radius: pos.coords.accuracy, strokeWeight: 1, strokeColor: '#0070FF', strokeOpacity: 0.7, fillColor: '#0070FF', fillOpacity: 0.2 });
+        map.setLevel(3, { anchor: latlng });
 
         clearVisual();
         const { marker, meters } = nearestBinFrom(latlng);
         if (!marker){ alert('휴지통 데이터가 없습니다.'); return; }
         
-        if (nearestMarkerInfo && nearestMarkerInfo.marker) {
-            nearestMarkerInfo.marker.setImage(defaultMarkerImage);
-        }
+        if (nearestMarkerInfo && nearestMarkerInfo.marker) nearestMarkerInfo.marker.setImage(defaultMarkerImage);
         marker.setImage(redMarkerImage);
         nearestMarkerInfo = { marker: marker, meters: meters };
 
         const route = await routeFoot(latlng, marker.getPosition());
         if (!route){
-          routePolyline = new kakao.maps.Polyline({
-              map: map,
-              path: [latlng, marker.getPosition()],
-              strokeWeight: 6,
-              strokeColor: '#FF0000',
-              strokeOpacity: 0.9,
-              strokeStyle: 'solid'
-          });
+          routePolyline = new kakao.maps.Polyline({ map: map, path: [latlng, marker.getPosition()], strokeWeight: 6, strokeColor: '#FF0000', strokeOpacity: 0.9 });
           setInfo(`<small>직선거리: ${Math.round(meters)} m (경로 API 실패)</small>`);
           return;
         }
 
         const path = route.geometry.coordinates.map(c => new kakao.maps.LatLng(c[1], c[0]));
-        routePolyline = new kakao.maps.Polyline({
-            map: map,
-            path: path,
-            strokeWeight: 7,
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.95,
-            strokeStyle: 'solid'
-        });
+        routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
 
-        const bounds = new kakao.maps.LatLngBounds();
-        bounds.extend(latlng);
-        bounds.extend(marker.getPosition());
-        // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
-        map.setBounds(bounds, {
-            padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
-        });
-
+        // ▼▼▼ 수정된 부분 ▼▼▼
+        if (path && path.length > 0) {
+            const bounds = new kakao.maps.LatLngBounds();
+            path.forEach(point => bounds.extend(point));
+            map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
+        }
+        
         const mins = Math.round(route.duration / 60);
         setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
       }, (err) => {
@@ -614,7 +431,6 @@
       }, { enableHighAccuracy: true, timeout: 10000 });
     });
 
-    // 임의 위치 지정 토글 + 지도 클릭으로 핀 놓기
     document.getElementById('btnPick').addEventListener('click', () => {
       pickMode = !pickMode;
       alert(pickMode ? '지도를 클릭해 임의 위치를 지정하세요. (마커는 드래그로 이동 가능)' : '임의 위치 지정을 종료합니다.');
@@ -623,112 +439,67 @@
     kakao.maps.event.addListener(map, 'click', async (mouseEvent) => {
       if (!pickMode) return;
       const latlng = mouseEvent.latLng;
-      const m = ensureManualMarker(latlng);
+      ensureManualMarker(latlng);
       setInfo(`<small>임의 위치: ${latlng.getLat().toFixed(6)}, ${latlng.getLng().toFixed(6)}</small>`);
       
       clearVisual();
       const { marker, meters } = nearestBinFrom(latlng);
       if (!marker){ alert('휴지통 데이터가 없습니다.'); return; }
       
-      if (nearestMarkerInfo && nearestMarkerInfo.marker) {
-          nearestMarkerInfo.marker.setImage(defaultMarkerImage);
-      }
+      if (nearestMarkerInfo && nearestMarkerInfo.marker) nearestMarkerInfo.marker.setImage(defaultMarkerImage);
       marker.setImage(redMarkerImage);
       nearestMarkerInfo = { marker: marker, meters: meters };
 
       const route = await routeFoot(latlng, marker.getPosition());
       if (!route){
-        routePolyline = new kakao.maps.Polyline({
-            map: map,
-            path: [latlng, marker.getPosition()],
-            strokeWeight: 6,
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.9,
-            strokeStyle: 'solid'
-        });
+        routePolyline = new kakao.maps.Polyline({ map: map, path: [latlng, marker.getPosition()], strokeWeight: 6, strokeColor: '#FF0000', strokeOpacity: 0.9 });
         setInfo(`<small>직선거리: ${Math.round(meters)} m (경로 API 실패)</small>`);
         return;
       }
       const path = route.geometry.coordinates.map(c => new kakao.maps.LatLng(c[1], c[0]));
-      routePolyline = new kakao.maps.Polyline({
-          map: map,
-          path: path,
-          strokeWeight: 7,
-          strokeColor: '#FF0000',
-          strokeOpacity: 0.95,
-          strokeStyle: 'solid'
-      });
+      routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
 
-      const bounds = new kakao.maps.LatLngBounds();
-      bounds.extend(latlng);
-      bounds.extend(marker.getPosition());
-      // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
-      map.setBounds(bounds, {
-          padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
-      });
+      // ▼▼▼ 수정된 부분 ▼▼▼
+      if (path && path.length > 0) {
+          const bounds = new kakao.maps.LatLngBounds();
+          path.forEach(point => bounds.extend(point));
+          map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
+      }
 
       const mins = Math.round(route.duration / 60);
       setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
     });
 
-    // A/B 선택 버튼
-    document.getElementById('btnPickA').addEventListener('click', () => {
-      pickA = true; pickB = false;
-      alert('A로 지정할 휴지통 마커를 클릭하세요.');
-    });
-    document.getElementById('btnPickB').addEventListener('click', () => {
-      pickB = true; pickA = false;
-      alert('B로 지정할 휴지통 마커를 클릭하세요.');
-    });
+    document.getElementById('btnPickA').addEventListener('click', () => { pickA = true; pickB = false; alert('A로 지정할 휴지통 마커를 클릭하세요.'); });
+    document.getElementById('btnPickB').addEventListener('click', () => { pickB = true; pickA = false; alert('B로 지정할 휴지통 마커를 클릭하세요.'); });
     document.getElementById('btnResetAB').addEventListener('click', resetAB);
+
     document.getElementById('btnRouteAB').addEventListener('click', async () => {
       if (!(markerA && markerB)){ alert('A와 B가 모두 선택되어야 합니다.'); return; }
-      if (routePolyline){ routePolyline.setMap(null); routePolyline = null; }
+      if (routePolyline) routePolyline.setMap(null);
+      
       const A = markerA.getPosition(), B = markerB.getPosition();
       try {
         const route = await routeFoot(A, B);
         if (!route){
-          routePolyline = new kakao.maps.Polyline({
-              map: map,
-              path: [A, B],
-              strokeWeight: 6,
-              strokeColor: '#FF0000',
-              strokeOpacity: 0.9,
-              strokeStyle: 'solid'
-          });
+          routePolyline = new kakao.maps.Polyline({ map: map, path: [A, B], strokeWeight: 6, strokeColor: '#FF0000', strokeOpacity: 0.9 });
           setInfo('<small>경로 API 실패 - 직선 연결</small>');
           return;
         }
         const path = route.geometry.coordinates.map(c => new kakao.maps.LatLng(c[1], c[0]));
-        routePolyline = new kakao.maps.Polyline({
-            map: map,
-            path: path,
-            strokeWeight: 7,
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.95,
-            strokeStyle: 'solid'
-        });
+        routePolyline = new kakao.maps.Polyline({ map: map, path: path, strokeWeight: 7, strokeColor: '#FF0000', strokeOpacity: 0.95 });
         
-        const bounds = new kakao.maps.LatLngBounds();
-        bounds.extend(A);
-        bounds.extend(B);
-        console.log('Setting Bounds with:', bounds.toString());
-        // routePolyline.getPath().forEach(p => bounds.extend(p)); // 수정된 부분
-        map.setBounds(bounds, {
-            padding: { top: 28, right: 28, bottom: 28, left: 28 } // 여백
-        });
+        // ▼▼▼ 수정된 부분 ▼▼▼
+        if (path && path.length > 0) {
+            const bounds = new kakao.maps.LatLngBounds();
+            path.forEach(point => bounds.extend(point));
+            map.setBounds(bounds, { padding: { top: 30, right: 30, bottom: 30, left: 30 } });
+        }
 
         const mins = Math.round(route.duration / 60);
         setInfo(`<small>도보 약 ${Math.round(route.distance)} m · ${mins}분</small>`);
       } catch (e){
-        routePolyline = new kakao.maps.Polyline({
-            map: map,
-            path: [A, B],
-            strokeWeight: 6,
-            strokeColor: '#FF0000',
-            strokeOpacity: 0.9,
-            strokeStyle: 'solid'
-        });
+        routePolyline = new kakao.maps.Polyline({ map: map, path: [A, B], strokeWeight: 6, strokeColor: '#FF0000', strokeOpacity: 0.9 });
         setInfo('<small>경로 API 오류 - 직선 연결</small>');
       }
     });
@@ -749,7 +520,6 @@
       toggleBtn.textContent = panel.classList.contains('hidden') ? 'UI 보이기' : 'UI 숨기기';
     });
 
-    // --- 파일 직접 선택 (file:// 환경 대안) ---
     function readTextFile(file){
       return new Promise((resolve, reject) => {
         const fr = new FileReader();
@@ -768,7 +538,7 @@
       const f = e.target.files[0]; if (!f) return;
       const text = await readTextFile(f);
       const geo = JSON.parse(text);
-      buildGuLayers(geo); // 서울만
+      buildGuLayers(geo);
     });
   </script>
 </body>
